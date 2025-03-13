@@ -1,7 +1,9 @@
 package com.justinwells.xlsUploader.controller;
 
+import com.justinwells.xlsUploader.model.SpreadsheetSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -12,8 +14,12 @@ import org.springframework.web.multipart.MultipartFile;
 public class UploadController {
     private static final Logger logger = LoggerFactory.getLogger(UploadController.class);
 
-    public UploadController() {
-        logger.info("UploadController initialized");
+    private final SpreadsheetSpec salesSpec;
+
+    @Autowired
+    public UploadController(SpreadsheetSpec salesSpec) {
+        this.salesSpec = salesSpec;
+        logger.info("UploadController initialized with spec: {}", salesSpec.getSpecName());
     }
 
     @PostMapping("/upload")
@@ -27,6 +33,9 @@ public class UploadController {
         if (filename == null || (!filename.endsWith(".xls") && !filename.endsWith(".xlsx"))) {
             return ResponseEntity.badRequest().body("{\"message\": \"Invalid file type. Only .xls or .xlsx allowed\"}");
         }
+
+        // Log the spec mappings for now
+        logger.info("Using spec: {} with mappings: {}", salesSpec.getSpecName(), salesSpec.getColumnMappings());
 
         return ResponseEntity.ok("{\"message\": \"File uploaded successfully: " + filename + "\"}");
     }
