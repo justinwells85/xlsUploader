@@ -1,26 +1,41 @@
 package com.justinwells.xlsUploader.model;
 
+import org.springframework.stereotype.Component;
+
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+@Component
 public class SpreadsheetSpec {
-    private String specName; // e.g., "sales", "inventory"
-    private Map<String, String> columnMappings; // Column name in spreadsheet -> JSON field name
+    private final String specName;
+    private final Map<String, String> headerMappings;
 
+    // Constructor for SpecConfig
     public SpreadsheetSpec(String specName) {
         this.specName = specName;
-        this.columnMappings = new HashMap<>();
+        this.headerMappings = new HashMap<>();
     }
 
-    public void addMapping(String columnName, String jsonFieldName) {
-        columnMappings.put(columnName, jsonFieldName);
+    // Default constructor for @Component (optional, if needed elsewhere)
+    public SpreadsheetSpec() {
+        this("sales"); // Default to "sales"
+    }
+
+    public void addMapping(String header, String field) {
+        headerMappings.put(header, field);
     }
 
     public String getSpecName() {
         return specName;
     }
 
-    public Map<String, String> getColumnMappings() {
-        return columnMappings;
+    public Map<String, String> getHeaderMappings() {
+        return headerMappings;
+    }
+
+    // For SpreadsheetParser compatibility
+    public List<String> getExpectedHeaders() {
+        return List.copyOf(headerMappings.keySet());
     }
 }

@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class SpecConfig {
-
     @Bean
     public SpreadsheetSpec salesSpec() {
         SpreadsheetSpec spec = new SpreadsheetSpec("sales");
