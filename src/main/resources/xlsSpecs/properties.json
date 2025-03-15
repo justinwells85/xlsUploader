@@ -1,0 +1,10 @@
+{
+    "specName": "properties",
+    "headers": [
+        {"header": "Property ID", "field": "propertyId", "type": "STRING", "required": true},
+        {"header": "Entity Type", "field": "entityType", "type": "STRING", "required": true},
+        {"header": "Entity ID", "field": "entityId", "type": "STRING", "required": true},
+        {"header": "Property Name", "field": "propertyName", "type": "STRING", "required": true},
+        {"header": "Property Value", "field": "propertyValue", "type": "STRING", "required": false}
+    ]
+}

@@ -1,0 +1,10 @@
+{
+    "specName": "payment",
+    "headers": [
+        {"header": "Payment ID", "field": "paymentId", "type": "STRING", "required": true},
+        {"header": "Participant ID", "field": "participantId", "type": "STRING", "required": true},
+        {"header": "Amount", "field": "amount", "type": "INTEGER", "required": true},
+        {"header": "Payment Date", "field": "paymentDate", "type": "DATE", "required": true},
+        {"header": "Description", "field": "description", "type": "STRING", "required": false}
+    ]
+}

@@ -1,0 +1,10 @@
+{
+    "specName": "events",
+    "headers": [
+        {"header": "Event ID", "field": "eventId", "type": "STRING", "required": true},
+        {"header": "Activity ID", "field": "activityId", "type": "STRING", "required": true},
+        {"header": "Event Name", "field": "eventName", "type": "STRING", "required": true},
+        {"header": "Event Date", "field": "eventDate", "type": "DATE", "required": true},
+        {"header": "Location", "field": "location", "type": "STRING", "required": false}
+    ]
+}

@@ -4,27 +4,33 @@ import io.awspring.cloud.sqs.annotation.SqsListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.List;
-import java.util.Map;
 
 @Service
 public class SpreadsheetProcessor {
     private static final Logger logger = LoggerFactory.getLogger(SpreadsheetProcessor.class);
-    private final ObjectMapper objectMapper;
 
-    public SpreadsheetProcessor(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+    @SqsListener("participant-queue")
+    public void processParticipant(String message) {
+        logger.info("Received participant message: {}", message);
     }
 
-    @SqsListener("spreadsheet-queue")
-    public void processMessage(String message) throws Exception {
-        logger.info("Received from SQS: {}", message);
-        List<Map<String, String>> batch = objectMapper.readValue(message, 
-            objectMapper.getTypeFactory().constructCollectionType(List.class, Map.class));
-        
-        for (Map<String, String> row : batch) {
-            logger.info("Row: {}", row);
-        }
+    @SqsListener("payment-queue")
+    public void processPayment(String message) {
+        logger.info("Received payment message: {}", message);
+    }
+
+    @SqsListener("properties-queue")
+    public void processProperties(String message) {
+        logger.info("Received properties message: {}", message);
+    }
+
+    @SqsListener("assignments-queue")
+    public void processAssignments(String message) {
+        logger.info("Received assignments message: {}", message);
+    }
+
+    @SqsListener("events-queue")
+    public void processEvents(String message) {
+        logger.info("Received events message: {}", message);
     }
 }
