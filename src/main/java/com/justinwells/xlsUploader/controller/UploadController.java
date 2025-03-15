@@ -16,13 +16,13 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.awspring.cloud.sqs.operations.SqsTemplate;
-
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 public class UploadController {
     private static final Logger logger = LoggerFactory.getLogger(UploadController.class);
-
     private final SpreadsheetSpec salesSpec;
     private final SpreadsheetParser spreadsheetParser;
     private final ObjectMapper objectMapper;
@@ -35,64 +35,44 @@ public class UploadController {
         this.spreadsheetParser = spreadsheetParser;
         this.objectMapper = objectMapper;
         this.sqsTemplate = sqsTemplate;
-        logger.info("UploadController initialized with spec: {}", salesSpec.getSpecName());
     }
 
     @PostMapping("/upload")
     @Retryable(maxAttempts = 3, backoff = @Backoff(delay = 1000))
     public ResponseEntity<String> uploadFile(@RequestParam("file") MultipartFile file) {
-        logger.info("Received upload request for file: {}", file.getOriginalFilename());
-        if (file.isEmpty()) {
-            logger.warn("Upload rejected: File is empty");
-            return ResponseEntity.badRequest().body("{\"message\": \"No file uploaded\"}");
-        }
-
+        if (file.isEmpty()) return ResponseEntity.badRequest().body("{\"message\": \"No file uploaded\"}");
         String filename = file.getOriginalFilename();
-        if (filename == null) {
-            logger.warn("Upload rejected: Filename is null");
-            return ResponseEntity.badRequest().body("{\"message\": \"No filename provided\"}");
-        }
-        if (!filename.endsWith(".xls") && !filename.endsWith(".xlsx")) {
-            logger.warn("Upload rejected: Invalid file type - {}", filename);
+        if (filename == null) return ResponseEntity.badRequest().body("{\"message\": \"No filename provided\"}");
+        if (!filename.endsWith(".xls") && !filename.endsWith(".xlsx")) 
             return ResponseEntity.badRequest().body("{\"message\": \"Invalid file type. Only .xls or .xlsx allowed\"}");
-        }
-
         try {
-            if (file.getSize() > 10 * 1024 * 1024) {
-                logger.warn("Upload rejected: File too large - {} bytes", file.getSize());
+            if (file.getSize() > 10 * 1024 * 1024) 
                 return ResponseEntity.badRequest().body("{\"message\": \"File exceeds 10MB limit\"}");
-            }
-
             SpreadsheetData parsedData = spreadsheetParser.parseSpreadsheet(file, salesSpec);
-            if (parsedData.getData().isEmpty()) {
-                logger.warn("Upload rejected: No valid data in file - {}", filename);
+            if (parsedData.getData().isEmpty()) 
                 return ResponseEntity.badRequest().body("{\"message\": \"No valid data found in spreadsheet\"}");
+
+            // Batch queuing: Send each batch as raw data list
+            List<Map<String, String>> rows = parsedData.getData();
+            int batchSize = 1;
+            for (int i = 0; i < rows.size(); i += batchSize) {
+                int end = Math.min(i + batchSize, rows.size());
+                List<Map<String, String>> batch = rows.subList(i, end);
+                String jsonBatch = objectMapper.writeValueAsString(batch); // Just the batch, not SpreadsheetData
+                sqsTemplate.send("spreadsheet-queue", jsonBatch);
+                logger.info("Queued batch {}/{} for file: {}", (i / batchSize) + 1, (rows.size() + batchSize - 1) / batchSize, filename);
             }
 
-            String jsonData = objectMapper.writeValueAsString(parsedData);
-            logger.info("Converted to JSON: {}", jsonData);
-
-            try {
-                sqsTemplate.send("spreadsheet-queue", jsonData);
-                logger.info("Sent JSON to SQS queue: spreadsheet-queue");
-            } catch (Exception e) {
-                logger.error("SQS send failed: {} - Type: {}", e.getMessage(), e.getClass().getName(), e);
-                throw e; // Trigger retry
-            }
-
-            return ResponseEntity.ok("{\"message\": \"File uploaded, parsed, and queued successfully: " + filename + "\"}");
+            return ResponseEntity.ok("{\"message\": \"File uploaded, parsed, and queued in batches successfully: " + filename + "\"}");
         } catch (IOException e) {
-            logger.error("Failed to process spreadsheet: {}", e.getMessage(), e);
             return ResponseEntity.status(500).body("{\"message\": \"Error processing file: " + e.getMessage() + "\"}");
         } catch (Exception e) {
-            logger.error("Unexpected error during upload: {} - Type: {}", e.getMessage(), e.getClass().getName(), e);
-            throw e; // Trigger retry for any other exceptions
+            throw e;
         }
     }
 
     @Recover
     public ResponseEntity<String> recoverUploadFile(Exception e, MultipartFile file) {
-        logger.error("All retries failed for file: {}", file.getOriginalFilename(), e);
         return ResponseEntity.status(500)
                 .body("{\"message\": \"Failed to queue message after retries: " + e.getMessage() + "\"}");
     }
