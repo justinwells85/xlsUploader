@@ -2,12 +2,16 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
+    <!-- Spring Boot Parent -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.4.3</version>
-        <relativePath/> 
+        <version>3.4.3</version> <!-- Updated from 3.2.3; latest as of March 2025 -->
+        <relativePath/> <!-- Lookup parent from repository -->
     </parent>
+
+    <!-- Project Coordinates -->
     <groupId>com.justinwells</groupId>
     <artifactId>xlsUploader</artifactId>
     <version>0.0.1-SNAPSHOT</version>
@@ -26,49 +30,69 @@
         <tag/>
         <url/>
     </scm>
+
+    <!-- Java Version -->
     <properties>
-        <java.version>21</java.version>
+        <java.version>21</java.version> <!-- Updated from 17; aligns with Spring Boot 3.4.3 -->
     </properties>
+
     <dependencies>
+        <!-- Spring Boot Web Starter (for REST API) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+
+        <!-- Spring Boot Test (for XlsUploaderApplicationTests) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- Apache POI for Excel parsing (xlsx) -->
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml</artifactId>
             <version>5.2.5</version>
         </dependency>
+        <!-- Note: poi-ooxml includes poi; no need for separate poi dependency -->
+
+        <!-- Spring Cloud AWS S3 Starter (replaces standalone s3 dependency) -->
         <dependency>
             <groupId>io.awspring.cloud</groupId>
             <artifactId>spring-cloud-aws-starter-s3</artifactId>
             <version>3.1.1</version>
         </dependency>
+
+        <!-- Spring Cloud AWS SQS Starter (replaces spring-cloud-starter-aws-messaging) -->
         <dependency>
             <groupId>io.awspring.cloud</groupId>
             <artifactId>spring-cloud-aws-starter-sqs</artifactId>
+            <!-- Version managed by dependencyManagement below -->
         </dependency>
+
+        <!-- AWS SDK for SQS (explicitly added for finer control) -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>sqs</artifactId>
-            <version>2.25.16</version> <!-- Latest as of March 2025 -->
+            <version>2.25.16</version> <!-- Latest as of March 2025; overrides Spring Cloud AWS default -->
         </dependency>
+
+        <!-- Spring Retry (used in UploadController) -->
         <dependency>
             <groupId>org.springframework.retry</groupId>
             <artifactId>spring-retry</artifactId>
         </dependency>
+
+        <!-- Spring Aspects (required for @Retryable and AOP) -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-aspects</artifactId>
         </dependency>
-
     </dependencies>
 
+    <!-- Dependency Management for Spring Cloud AWS -->
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -83,6 +107,7 @@
 
     <build>
         <plugins>
+            <!-- Spring Boot Maven Plugin (for building and running) -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
