@@ -8,10 +8,6 @@ import com.amazonaws.services.s3.model.SetObjectTaggingRequest;
 import com.amazonaws.services.s3.model.Tag;
 import com.justinwells.xlsUploader.model.XlsSpec;
 import com.justinwells.xlsUploader.service.SpreadsheetParser;
-import java.io.File;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Map;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.openxmlformats.schemas.officeDocument.x2006.customProperties.CTProperty;
@@ -22,6 +18,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Map;
 
 @RestController
 public class UploadController {
@@ -40,21 +41,23 @@ public class UploadController {
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<Map<String, String>> uploadFile(@RequestParam("file") MultipartFile file,
-                                                          @RequestParam(value = "specName", required = false) String specNameParam)
-            throws IOException {
+    public ResponseEntity<Map<String, String>> uploadFile(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "specName", required = false) String specNameParam) throws IOException {
+        // Validate file extension
         if (!file.getOriginalFilename().toLowerCase().endsWith(".xlsx")) {
             return rejectFile(file, null, "Invalid file type: must be .xlsx");
         }
 
+        // Generate unique S3 key
         String key = "uploads/" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
 
         // Upload to S3
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentLength(file.getSize());
-        PutObjectResult result = s3Client.putObject(bucketName, key, file.getInputStream(), metadata);
+        s3Client.putObject(bucketName, key, file.getInputStream(), metadata);
 
-        // Read Spec from Excel custom properties
+        // Create temp file and extract spec name
         File tempFile = File.createTempFile("upload-", file.getOriginalFilename());
         file.transferTo(tempFile);
         String specName;
@@ -71,18 +74,19 @@ public class UploadController {
         if (specName == null || specName.trim().isEmpty() || xlsSpec.getSpec(specName) == null) {
             setTags(key, "Rejected", specName != null ? specName : "unknown");
             tempFile.delete();
-            return ResponseEntity.badRequest().body(Map.of("error", "Unknown or missing spec: " + (specName != null ? specName : "none provided")));
+            return ResponseEntity.badRequest().body(
+                    Map.of("error", "Unknown or missing spec: " + (specName != null ? specName : "none provided")));
         }
 
         setTags(key, "New", specName);
 
-        // Process file with S3 key
+        // Process the file
         try {
             spreadsheetParser.parseAndQueue(tempFile, specName, key);
             setTags(key, "Processed", specName);
-        } catch (InvalidFormatException e) {
+        } catch (IOException e) {
             setTags(key, "Quarantine", specName);
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid Excel format: " + e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("error", "I/O error during processing: " + e.getMessage()));
         } catch (IllegalArgumentException e) {
             setTags(key, "Quarantine", specName);
             return ResponseEntity.badRequest().body(Map.of("error", "Data outside spec range: " + e.getMessage()));
@@ -96,7 +100,8 @@ public class UploadController {
         return ResponseEntity.ok(Map.of("message", "File uploaded to S3 and queued: " + key));
     }
 
-    private ResponseEntity<Map<String, String>> rejectFile(MultipartFile file, String specName, String reason) throws IOException {
+    private ResponseEntity<Map<String, String>> rejectFile(MultipartFile file, String specName, String reason)
+            throws IOException {
         String key = "uploads/" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentLength(file.getSize());
@@ -107,10 +112,10 @@ public class UploadController {
 
     private void setTags(String key, String state, String spec) {
         ObjectTagging tagging = new ObjectTagging(
-            Arrays.asList(
-                new Tag("fileProcessingState", state),
-                new Tag("spec", spec)
-            )
+                Arrays.asList(
+                        new Tag("fileProcessingState", state),
+                        new Tag("spec", spec)
+                )
         );
         SetObjectTaggingRequest taggingRequest = new SetObjectTaggingRequest(bucketName, key, tagging);
         s3Client.setObjectTagging(taggingRequest);

@@ -60,7 +60,7 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-sqs</artifactId>
-            <version>1.12.664</version>
+            <version>1.12.563</version> <!-- Use the latest version -->
         </dependency>
 
         <!-- AWS SDK v2 (for S3Client, SqsClient) -->

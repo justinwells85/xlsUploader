@@ -1,10 +1,10 @@
 {
     "specName": "participant",
     "headers": [
-        {"header": "Participant ID", "field": "participantId", "type": "STRING", "required": true},
-        {"header": "First Name", "field": "firstName", "type": "STRING", "required": true},
-        {"header": "Last Name", "field": "lastName", "type": "STRING", "required": true},
-        {"header": "Email", "field": "email", "type": "STRING", "required": false},
-        {"header": "Registration Date", "field": "registrationDate", "type": "DATE", "required": false}
+        {"header": "Participant ID", "field": "participantId", "type": "STRING", "required": true, "constraint": "any"},
+        {"header": "First Name", "field": "firstName", "type": "STRING", "required": true, "constraint": "any"},
+        {"header": "Last Name", "field": "lastName", "type": "STRING", "required": true, "constraint": "any"},
+        {"header": "Email", "field": "email", "type": "STRING", "required": false, "constraint": "email"},
+        {"header": "Registration Date", "field": "registrationDate", "type": "DATE", "required": false, "constraint": "future"}
     ]
 }
