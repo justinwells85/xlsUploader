@@ -76,9 +76,9 @@ public class UploadController {
 
         setTags(key, "New", specName);
 
-        // Process file
+        // Process file with S3 key
         try {
-            spreadsheetParser.parseAndQueue(tempFile, specName);
+            spreadsheetParser.parseAndQueue(tempFile, specName, key);
             setTags(key, "Processed", specName);
         } catch (InvalidFormatException e) {
             setTags(key, "Quarantine", specName);

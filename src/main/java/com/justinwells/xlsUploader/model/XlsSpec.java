@@ -1,59 +1,137 @@
 package com.justinwells.xlsUploader.model;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
-import org.springframework.stereotype.Component;
-
-import javax.annotation.PostConstruct;
+import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.poi.ss.usermodel.Row;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 @Component
 public class XlsSpec {
-    private Map<String, SpecDefinition> definitions = new HashMap<>();
+    private static final Logger logger = LoggerFactory.getLogger(XlsSpec.class);
+    private final ObjectMapper objectMapper;
+    private final Map<String, List<HeaderSpec>> specs = new HashMap<>();
 
-    @PostConstruct
-    public void init() throws IOException {
-        ObjectMapper mapper = new ObjectMapper();
-        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
-        Resource[] resources = resolver.getResources("classpath:xlsSpecs/*.json");
-        for (Resource resource : resources) {
-            SpecDefinition spec = mapper.readValue(resource.getFile(), SpecDefinition.class);
-            definitions.put(spec.getSpecName(), spec);
+    @Autowired
+    public XlsSpec(ObjectMapper objectMapper) throws IOException {
+        this.objectMapper = objectMapper;
+        loadSpecs();
+    }
+
+    private void loadSpecs() throws IOException {
+        File specDir = new File("src/main/resources/xlsSpecs");
+        if (!specDir.exists() || !specDir.isDirectory()) {
+            throw new IOException("Spec directory not found: " + specDir.getAbsolutePath());
+        }
+
+        File[] specFiles = specDir.listFiles((dir, name) -> name.endsWith(".json"));
+        if (specFiles == null || specFiles.length == 0) {
+            throw new IOException("No JSON spec files found in " + specDir.getAbsolutePath());
+        }
+
+        for (File specFile : specFiles) {
+            String specName = specFile.getName().replace(".json", "");
+            Map<String, Object> specData = objectMapper.readValue(specFile, new TypeReference<Map<String, Object>>() {});
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> headersData = (List<Map<String, Object>>) specData.get("headers");
+            if (headersData == null) {
+                throw new IOException("No 'headers' field found in spec file: " + specFile.getName());
+            }
+
+            specs.put(specName, parseHeaders(headersData));
+            logger.info("Loaded spec: {} with headers: {}", specName, specs.get(specName));
         }
     }
 
-    public SpecDefinition getSpec(String specName) {
-        return definitions.getOrDefault(specName, definitions.get("sales")); // Fallback to "sales" if spec not found
+    private List<HeaderSpec> parseHeaders(List<Map<String, Object>> headersData) {
+        List<HeaderSpec> headers = new ArrayList<>();
+        for (Map<String, Object> data : headersData) {
+            headers.add(new HeaderSpec(
+                (String) data.get("header"),
+                (String) data.get("field"),
+                (String) data.get("type"),
+                (Boolean) data.get("required")));
+        }
+        return headers;
     }
 
-    public static class SpecDefinition {
-        private String specName;
-        private List<HeaderMapping> headers;
-
-        public String getSpecName() { return specName; }
-        public void setSpecName(String specName) { this.specName = specName; }
-        public List<HeaderMapping> getHeaders() { return headers; }
-        public void setHeaders(List<HeaderMapping> headers) { this.headers = headers; }
+    public List<HeaderSpec> getSpec(String specName) {
+        return specs.get(specName);
     }
 
-    public static class HeaderMapping {
-        private String header;
-        private String field;
-        private String type;
-        private boolean required;
+    public Map<String, Integer> getHeaderMap(String specName, Row headerRow) {
+        List<HeaderSpec> expectedHeaders = getSpec(specName);
+        if (expectedHeaders == null) {
+            throw new IllegalArgumentException("Unknown spec: " + specName);
+        }
 
-        public String getHeader() { return header; }
-        public String getField() { return field; }
-        public String getType() { return type; }
-        public boolean isRequired() { return required; }
+        Map<String, Integer> headerMap = new HashMap<>();
+        // Map headers to their positions
+        for (int i = 0; i < headerRow.getLastCellNum(); i++) {
+            String header = headerRow.getCell(i) != null ? headerRow.getCell(i).toString().trim() : "";
+            for (HeaderSpec h : expectedHeaders) {
+                if (h.getHeader().equals(header)) {
+                    headerMap.put(h.getField(), i);
+                    break; // Stop checking once a match is found
+                }
+            }
+        }
 
-        public void setHeader(String header) { this.header = header; }
-        public void setField(String field) { this.field = field; }
-        public void setType(String type) { this.type = type; }
-        public void setRequired(boolean required) { this.required = required; }
+        // Validate required headers
+        List<String> missingHeaders = new ArrayList<>();
+        for (HeaderSpec h : expectedHeaders) {
+            if (h.isRequired() && !headerMap.containsKey(h.getField())) {
+                missingHeaders.add(h.getHeader());
+            }
+        }
+        if (!missingHeaders.isEmpty()) {
+            throw new IllegalArgumentException("Missing required headers for spec " + specName + ": " + missingHeaders);
+        }
+
+        return headerMap;
+    }
+
+    // Inner class to represent header spec
+    public static class HeaderSpec {
+        private final String header;
+        private final String field;
+        private final String type;
+        private final boolean required;
+
+        public HeaderSpec(String header, String field, String type, Boolean required) {
+            this.header = header;
+            this.field = field;
+            this.type = type;
+            this.required = required != null ? required : false; // Default to false if null
+        }
+
+        public String getHeader() {
+            return header;
+        }
+
+        public String getField() {
+            return field;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public boolean isRequired() {
+            return required;
+        }
+
+        @Override
+        public String toString() {
+            return "HeaderSpec{header='" + header + "', field='" + field + "', type='" + type + "', required=" + required + "}";
+        }
     }
 }
